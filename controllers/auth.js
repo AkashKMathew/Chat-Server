@@ -2,6 +2,8 @@ const jwt = require("jsonwebtoken");
 const otpGenerator = require("otp-generator");
 const User = require("../models/user");
 const filterObj = require("../utils/filterObj");
+const crypto = require("crypto");
+const { promisify } = require("util");
 
 const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
 
@@ -125,6 +127,117 @@ exports.login = async (req, res, next) => {
   });
 };
 
-exports.forgotPassword = async (req, res, next) => {};
+exports.protect = async (req, res, next) => {
+  let token;
 
-exports.resetPassword = async (req, res, next) => {};
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+  } else {
+    req.status(400).json({
+      status: "error",
+      message: "You are not logged in",
+    });
+
+    return;
+  }
+
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+  const this_user = await User.findById(decoded.userId);
+
+  if (!this_user) {
+    res.status(400).json({
+      status: "error",
+      message: "User does not exist",
+    });
+  }
+
+  if (this_user.changedPasswordAfter(decoded.iat)) {
+    res.status(400).json({
+      status: "error",
+      message: "User recently changed password, please login again",
+    });
+  }
+
+  req.user = this_user;
+  next();
+};
+
+exports.forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email: email });
+
+  if (!user) {
+    res.status(400).json({
+      status: "error",
+      message: "Email is invalid",
+    });
+
+    return;
+  }
+
+  const resetToken = user.createPasswordResetToken();
+
+  const resetURL = `https://talky.com/resetPassword/?code=${resetToken}`;
+
+  try {
+    //send mail
+    res.status(200).json({
+      status: "success",
+      message: "Reset password link send to email",
+    });
+  } catch (err) {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    res.status(500).json({
+      status: "error",
+      message: "Error sending email",
+    });
+  }
+};
+
+exports.resetPassword = async (req, res, next) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400).json({
+      status: "error",
+      message: "Token is invalid or expired",
+    });
+    return;
+  }
+
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+
+  await user.save();
+
+  //send mail
+
+  const token = signToken(user._id);
+
+  res.status(200).json({
+    status: "success",
+    message: "Password reset successfully",
+    token,
+  });
+};

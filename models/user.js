@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -30,6 +31,16 @@ const userSchema = new mongoose.Schema({
     required: [true, "Please provide your password"],
     select: false,
   },
+  passwordConfirm: {
+    type: String,
+    required: [true, "Please confirm your password"],
+    validate: {
+      validator: function (val) {
+        return val === this.password;
+      },
+      message: "Passwords are not the same",
+    },
+  },
   passwordChangedAt: {
     type: Date,
   },
@@ -57,15 +68,21 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.pre("save",async function(next){
-    if(!this.isModified("otp")) return next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("otp")) return next(); //prevents rehashing the otp
 
-    this.otp = await bcrypt.hash(this.otp,12);  //hash otp with cost of 12
+  this.otp = await bcrypt.hash(this.otp, 12); //hash otp with cost of 12
 
-    next();
+  next();
 });
 
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
 
+  this.password = await bcrypt.hash(this.password, 12); //hash password with cost of 12
+
+  next();
+});
 
 userSchema.methods.correctPassword = async function (
   candidatePassword,
@@ -74,12 +91,26 @@ userSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-userSchema.methods.correctOTP = async function (
-    candidateOTP,
-    userOTP
-  ) {
-    return await bcrypt.compare(candidateOTP, userOTP);
-  };
+userSchema.methods.correctOTP = async function (candidateOTP, userOTP) {
+  return await bcrypt.compare(candidateOTP, userOTP);
+};
+
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; //10 minutes
+
+  return resetToken;
+};
+
+userSchema.methods.changedPasswordAfter = function (timestamp) {
+  return timestamp < this.passwordChangedAt;
+};
 
 const User = new mongoose.model("User", userSchema);
 module.exports = User;
