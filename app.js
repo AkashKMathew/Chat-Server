@@ -16,6 +16,8 @@ const cors = require("cors");
 
 const app = express();
 
+const routes = require("./routes/index");
+
 app.use(express.urlencoded({
     extended: true,
 }));
@@ -38,7 +40,9 @@ const limiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     message: "Too many requests from this IP, please try again after an hour",
 });
-app.use("/tawk",limiter); //to limit the number of requests
+app.use("/talky",limiter); //to limit the number of requests
+
+app.use(routes);
 
 
 module.exports = app;
