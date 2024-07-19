@@ -80,6 +80,15 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", async function (next) {
+
+  if (!this.isModified("passwordConfirm") || !this.passwordConfirm) return next();
+
+  this.passwordConfirm = await bcrypt.hash(this.passwordConfirm, 12); //hash password with cost of 12
+
+  next();
+});
+
+userSchema.pre("save", async function (next) {
   
   if (!this.isModified("otp") || !this.otp) return next();
   

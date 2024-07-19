@@ -18,16 +18,12 @@ const server = http.createServer(app); //create a server with the app
 
 const DB = process.env.DBURI.replace("<PASSWORD>",process.env.DBPASSWORD); //replace the password in the DBURI
 
-mongoose.connect(DB, {
-  userNewUrlParser: true,
-  userCreateIndex: true,
-  userFindAndModify: false,
-  userUnifiedTopology: true,
-}).then(()=>{
+mongoose.connect(DB).then(() => {
   console.log("Database connected successfully");
-}).catch((err)=>{
+}).catch((err) => {
   console.log(err);
-}); //connect to the database
+});
+
 
 const port = process.env.PORT || 8000; //set the port
 

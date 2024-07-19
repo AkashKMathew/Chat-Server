@@ -18,6 +18,7 @@ exports.register = async (req, res, next) => {
     "firstName",
     "lastName",
     "password",
+    "passwordConfirm",
     "email"
   );
   filterObj["createdAt"] = Date.now();
@@ -30,18 +31,31 @@ exports.register = async (req, res, next) => {
       message: "Email is already in use, Please login",
     });
   } else if (existing_user) {
-    await User.findOneAndUpdate({ email: email }, filteredBody, {
-      new: true,
-      validateModifiedOnly: true,
-    });
+    try {
+      await User.findOneAndUpdate({ email: email }, filteredBody, {
+        new: true,
+        validateModifiedOnly: true,
+      });
+    } catch (err) {
+      res.status(500).json({
+        status: "error",
+        message: "Error updating user",
+      });
+    }
 
     req.userId = existing_user._id;
     next();
   } else {
-    const new_user = await User.create(filteredBody);
-
-    req.userId = new_user._id;
-    next();
+    try {
+      const new_user = await User.create(filteredBody);
+      req.userId = new_user._id;
+      next();
+    } catch (err) {
+      res.status(500).json({
+        status: "error",
+        message: "Error creating user",
+      });
+    }
   }
 };
 
@@ -195,7 +209,7 @@ exports.forgotPassword = async (req, res, next) => {
   const user = await User.findOne({ email: email });
 
   if (!user) {
-    res.status(400).json({
+    res.status(404).json({
       status: "error",
       message: "Email is invalid",
     });
@@ -204,8 +218,10 @@ exports.forgotPassword = async (req, res, next) => {
   }
 
   const resetToken = user.createPasswordResetToken();
+  console.log(resetToken);
+  await user.save({ validateBeforeSave: false });
 
-  const resetURL = `https://talky.com/resetPassword/?code=${resetToken}`;
+  const resetURL = `${process.env.RESET_URL}${resetToken}`;
 
   try {
     //send mail
@@ -239,7 +255,7 @@ exports.forgotPassword = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
   const hashedToken = crypto
     .createHash("sha256")
-    .update(req.params.token)
+    .update(req.body.token)
     .digest("hex");
 
   const user = await User.findOne({
@@ -254,14 +270,20 @@ exports.resetPassword = async (req, res, next) => {
     });
     return;
   }
+  try {
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordChangedAt = Date.now();
 
-  user.password = req.body.password;
-  user.passwordConfirm = req.body.passwordConfirm;
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
-  user.passwordChangedAt = Date.now();
-
-  await user.save();
+    await user.save();
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Error updating password",
+    });
+  }
 
   //send mail
 
