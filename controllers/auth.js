@@ -4,6 +4,9 @@ const User = require("../models/user");
 const filterObj = require("../utils/filterObj");
 const crypto = require("crypto");
 const { promisify } = require("util");
+const mailService = require("../services/mailer");
+const dotenv = require("dotenv");
+dotenv.config({path:"../.env"});
 
 const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
 
@@ -17,10 +20,11 @@ exports.register = async (req, res, next) => {
     "password",
     "email"
   );
+  filterObj["createdAt"] = Date.now();
 
   const existing_user = await User.findOne({ email: email });
 
-  if (!existing_user && existing_user.verified) {
+  if (existing_user && existing_user.verified) {
     res.status(400).json({
       status: "error",
       message: "Email is already in use, Please login",
@@ -36,7 +40,7 @@ exports.register = async (req, res, next) => {
   } else {
     const new_user = await User.create(filteredBody);
 
-    (req.userId = new_user), _id;
+    req.userId = new_user._id;
     next();
   }
 };
@@ -51,12 +55,24 @@ exports.sendOTP = async (req, res, next) => {
 
   const otp_expiry_time = Date.now() + 10 * 60 * 1000; //10 min
 
-  await User.findByIdAndUpdate(userId, {
-    otp: new_otp,
+  const user = await User.findByIdAndUpdate(userId, {
     otp_expiry_time,
   });
 
+  user.otp = new_otp.toString();
+
+  await user.save({new:true, validateModifiedOnly:true});
+
   //send mail
+  mailService.sendEmail({
+    from: {
+      name: "Talky",
+      address: process.env.EMAIL,
+    },
+    to: user.email,
+    subject: "OTP for email verification in Talky",
+    text: `Your OTP is ${new_otp}. This is only valid for 10 minutes`,
+  });
 
   res.status(200).json({
     status: "success",
@@ -69,7 +85,7 @@ exports.verifyOTP = async (req, res, next) => {
 
   const user = await User.findOne({
     email,
-    otp_expiry_time: { $gt: Date.new() },
+    otp_expiry_time: { $gt: Date.now() },
   });
 
   if (!user) {
@@ -77,13 +93,15 @@ exports.verifyOTP = async (req, res, next) => {
       status: "error",
       message: "Email is invalid or OTP expired",
     });
+    return;
   }
 
-  if (!(await user.correctOTP(otp, user.otp))) {
+  if (!(await user.correctOTP(otp, user.otp.toString()))) {
     res.status(400).json({
       status: "error",
       message: "OTP is incorrect",
     });
+    return;
   }
 
   user.verified = true;
@@ -116,9 +134,10 @@ exports.login = async (req, res, next) => {
       status: "error",
       message: "Email or Password is incorrect",
     });
+    return;
   }
 
-  const token = jwt.signToken(user._id);
+  const token = signToken(user._id);
 
   res.status(200).json({
     status: "success",
@@ -155,6 +174,7 @@ exports.protect = async (req, res, next) => {
       status: "error",
       message: "User does not exist",
     });
+    return;
   }
 
   if (this_user.changedPasswordAfter(decoded.iat)) {
@@ -162,6 +182,7 @@ exports.protect = async (req, res, next) => {
       status: "error",
       message: "User recently changed password, please login again",
     });
+    return;
   }
 
   req.user = this_user;
@@ -188,6 +209,16 @@ exports.forgotPassword = async (req, res, next) => {
 
   try {
     //send mail
+    mailService.sendEmail({
+      from: {
+        name: "Talky",
+        address: process.env.EMAIL,
+      },
+      to: user.email,
+      subject: "Reset password link for Talky",
+      text: `Click this link to reset your password ${resetURL}. This link is only valid for 10 minutes`,
+    });
+
     res.status(200).json({
       status: "success",
       message: "Reset password link send to email",
@@ -228,6 +259,7 @@ exports.resetPassword = async (req, res, next) => {
   user.passwordConfirm = req.body.passwordConfirm;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
+  user.passwordChangedAt = Date.now();
 
   await user.save();
 
