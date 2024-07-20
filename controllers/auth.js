@@ -6,6 +6,8 @@ const crypto = require("crypto");
 const { promisify } = require("util");
 const mailService = require("../services/mailer");
 const dotenv = require("dotenv");
+const resetPassword = require("../Templates/Mail/resetPassword");
+const otp = require("../Templates/Mail/otp");
 dotenv.config({path:"../.env"});
 
 const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
@@ -85,7 +87,7 @@ exports.sendOTP = async (req, res, next) => {
     },
     to: user.email,
     subject: "OTP for email verification in Talky",
-    text: `Your OTP is ${new_otp}. This is only valid for 10 minutes`,
+    html: otp(user.firstName, new_otp),
   });
 
   res.status(200).json({
@@ -232,7 +234,7 @@ exports.forgotPassword = async (req, res, next) => {
       },
       to: user.email,
       subject: "Reset password link for Talky",
-      text: `Click this link to reset your password ${resetURL}. This link is only valid for 10 minutes`,
+      html: resetPassword(user.firstName, resetURL),
     });
 
     res.status(200).json({
