@@ -145,6 +145,14 @@ exports.login = async (req, res, next) => {
   }
   const user = await User.findOne({ email: email }).select("+password");
 
+  if(user && !user.verified){
+    res.status(400).json({
+      status: "error",
+      message: "Email is not verified",
+    });
+    return;
+  }
+
   if (!user || !(await user.correctPassword(password, user.password))) {
     res.status(400).json({
       status: "error",
