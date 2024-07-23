@@ -8,7 +8,7 @@ const mailService = require("../services/mailer");
 const dotenv = require("dotenv");
 const resetPassword = require("../Templates/Mail/resetPassword");
 const otp = require("../Templates/Mail/otp");
-dotenv.config({path:"../.env"});
+dotenv.config({ path: "../.env" });
 
 const signToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET);
 
@@ -39,6 +39,7 @@ exports.register = async (req, res, next) => {
         validateModifiedOnly: true,
       });
     } catch (err) {
+      console.log(err);
       res.status(500).json({
         status: "error",
         message: "Error updating user",
@@ -53,6 +54,7 @@ exports.register = async (req, res, next) => {
       req.userId = new_user._id;
       next();
     } catch (err) {
+      console.log(err);
       res.status(500).json({
         status: "error",
         message: "Error creating user",
@@ -77,7 +79,7 @@ exports.sendOTP = async (req, res, next) => {
 
   user.otp = new_otp.toString();
 
-  await user.save({new:true, validateModifiedOnly:true});
+  await user.save({ new: true, validateModifiedOnly: true });
 
   //send mail
   mailService.sendEmail({
@@ -122,6 +124,7 @@ exports.verifyOTP = async (req, res, next) => {
 
   user.verified = true;
   user.otp = undefined;
+  user.otp_expiry_time = undefined;
 
   await user.save({ new: true, validateModifiedOnly: true });
 
@@ -143,9 +146,17 @@ exports.login = async (req, res, next) => {
       message: "Both email and password are required",
     });
   }
-  const user = await User.findOne({ email: email }).select("+password");
-
-  if(user && !user.verified){
+  let user=null;
+  try {
+    user = await User.findOne({ email: email }).select("+password");
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Error finding user",
+    });
+    return;
+  }
+  if (user && !user.verified) {
     res.status(400).json({
       status: "error",
       message: "Email is not verified",
