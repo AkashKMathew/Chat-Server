@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
         return String(val)
           .toLowerCase()
           .match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/);
-      },      
+      },
       message: (props) => `Email ${props.value} is not valid`,
     },
   },
@@ -66,12 +66,18 @@ const userSchema = new mongoose.Schema({
   otp_expiry_time: {
     type: Date,
   },
+  socket_id: {
+    type: String,
+  },
+  friends: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+    },
+  ],
 });
 
-
-
 userSchema.pre("save", async function (next) {
-
   if (!this.isModified("password") || !this.password) return next();
 
   this.password = await bcrypt.hash(this.password, 12); //hash password with cost of 12
@@ -80,8 +86,8 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", async function (next) {
-
-  if (!this.isModified("passwordConfirm") || !this.passwordConfirm) return next();
+  if (!this.isModified("passwordConfirm") || !this.passwordConfirm)
+    return next();
 
   this.passwordConfirm = await bcrypt.hash(this.passwordConfirm, 12); //hash password with cost of 12
 
@@ -89,9 +95,8 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", async function (next) {
-  
   if (!this.isModified("otp") || !this.otp) return next();
-  
+
   this.otp = await bcrypt.hash(this.otp.toString(), 12); // hash otp with cost of 12
 
   next();
