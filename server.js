@@ -3,6 +3,7 @@ const app = require("./app");
 const dotenv = require("dotenv"); //to use the .env file
 const mongoose = require("mongoose"); //to connect to the database
 const { Server } = require("socket.io");
+const path = require("path");
 
 dotenv.config({ path: "./.env" });
 
@@ -18,7 +19,7 @@ const server = http.createServer(app); //create a server with the app
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "http://localhost:3001",
     methods: ["GET", "POST"],
   },
 });
@@ -43,7 +44,7 @@ server.listen(port, () => {
 io.on("connection", async (socket) => {
   // console.log(JSON.stringify(socket.handshake.query));
 
-  // console.log(socket);
+  console.log(socket);
   const user_id = socket.handshake.query["user_id"];
 
   const socket_id = socket.id;
@@ -51,7 +52,7 @@ io.on("connection", async (socket) => {
   console.log(`User ${user_id} connected with socket id ${socket_id}`);
 
   if (!!user_id) {
-    await User.findByIdAndUpdate(user_id, { socket_id });
+    await User.findByIdAndUpdate(user_id, { socket_id,status:"Online" });
   }
 
   socket.on("friend_request", async (data) => {
@@ -104,7 +105,29 @@ io.on("connection", async (socket) => {
 
   });
 
-  socket.on("end", function () {
+
+  socket.on("text_message", async(data)=>{
+    console.log("Received message ",data);
+
+    
+  });
+
+  socket.on("file_message", (data) => {
+    console.log("Received file message ", data);
+
+    const fileExtension = path.extname(data.file.name);
+
+    const fileName = `${Date.now()}_${Math.floor(Math.random() * 10000)}${fileExtension}`;
+
+    //upload file to aws s3
+  })
+
+  socket.on("end", async (data) => {
+    if(data.user_id){
+      await User.findByIdAndUpdate(data.user_id, {status:"Offline"});
+    }
+
+
     console.log("Closing connection");
     socket.disconnect(0);
   })
