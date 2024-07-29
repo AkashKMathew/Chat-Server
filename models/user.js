@@ -132,7 +132,12 @@ userSchema.methods.createPasswordResetToken = function () {
 };
 
 userSchema.methods.changedPasswordAfter = function (timestamp) {
-  return timestamp < this.passwordChangedAt;
+  const changedTimeStamp = parseInt(
+    this.passwordChangedAt.getTime() / 1000,
+    10
+  );
+
+  return timestamp < changedTimeStamp;
 };
 
 const User = new mongoose.model("User", userSchema);

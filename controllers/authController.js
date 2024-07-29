@@ -23,7 +23,8 @@ exports.register = async (req, res, next) => {
     "passwordConfirm",
     "email"
   );
-  filterObj["createdAt"] = Date.now();
+  filteredBody["createdAt"] = Date.now();
+  filteredBody["passwordChangedAt"] = Date.now();
 
   const existing_user = await User.findOne({ email: email });
 
@@ -316,5 +317,6 @@ exports.resetPassword = async (req, res, next) => {
     status: "success",
     message: "Password reset successfully",
     token,
+    user_id:user._id,
   });
 };

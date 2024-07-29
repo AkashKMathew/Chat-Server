@@ -34,17 +34,16 @@ exports.getUsers = async (req, res, next) => {
 
   const this_user = req.user;
 
-  const remaining_users = all_users.filter((user) => {
-    !this_user.friends.includes(user._id) &&
-      user._id.toString() !== req.user._id.toString();
-  });
+  const remaining_users = all_users.filter(
+    (user) =>
+      !this_user.friends.includes(user._id) &&
+      user._id.toString() !== req.user._id.toString()
+  );
 
   res.status(200).json({
     status: "success",
-    data: {
-      data: remaining_users,
-      message: "All users fetched successfully",
-    },
+    data: remaining_users,
+    message: "All users fetched successfully",
   });
 };
 
@@ -55,10 +54,8 @@ exports.getRequest = async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: {
-      data: requests,
-      message: "Friend requests found successfully",
-    },
+    data: requests,
+    message: "Friend requests found successfully",
   });
 };
 
@@ -70,9 +67,7 @@ exports.getFriends = async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: {
-      data: this_user.friends,
-      message: "All friends fetched successfully",
-    },
+    data: this_user.friends,
+    message: "All friends fetched successfully",
   });
 };
