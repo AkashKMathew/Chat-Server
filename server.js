@@ -4,6 +4,7 @@ const dotenv = require("dotenv"); //to use the .env file
 const mongoose = require("mongoose"); //to connect to the database
 const { Server } = require("socket.io");
 const path = require("path");
+const OneToOneMessage = require("./models/OneToOneMessage");
 
 dotenv.config({ path: "./.env" });
 
@@ -44,7 +45,7 @@ server.listen(port, () => {
 io.on("connection", async (socket) => {
   // console.log(JSON.stringify(socket.handshake.query));
 
-  console.log(socket);
+  // console.log(socket);
   const user_id = socket.handshake.query["user_id"];
 
   const socket_id = socket.id;
@@ -52,7 +53,7 @@ io.on("connection", async (socket) => {
   console.log(`User ${user_id} connected with socket id ${socket_id}`);
 
   if (!!user_id) {
-    await User.findByIdAndUpdate(user_id, { socket_id,status:"Online" });
+    await User.findByIdAndUpdate(user_id, { socket_id, status: "Online" });
   }
 
   socket.on("friend_request", async (data) => {
@@ -80,7 +81,7 @@ io.on("connection", async (socket) => {
   socket.on("accept_request", async (data) => {
     console.log(data);
 
-    const request_doc = await FriendRequest.findById(data.reqiest_id);
+    const request_doc = await FriendRequest.findById(data.request_id);
 
     console.log(request_doc);
 
@@ -101,15 +102,80 @@ io.on("connection", async (socket) => {
     io.to(receiver.socket_id).emit("request_accepted", {
       message: "Friend request accepted",
     });
-
-
   });
 
+  socket.on("get_direct_conv", async ({ user_id }, callback) => {
+    const existing_conv = await OneToOneMessage.find({
+      participants: { $all: [user_id] },
+    }).populate("participants", "firstName lastName _id email status");
 
-  socket.on("text_message", async(data)=>{
-    console.log("Received message ",data);
+    console.log("existing conv in get dir conv",existing_conv);
+    callback(existing_conv);
+  });
 
-    
+  socket.on("start_conv", async (data) => {
+    const { to, from } = data;
+
+    const existing_conv = await OneToOneMessage.find({
+      participants: { $size: 2, $all: [to, from] },
+    }).populate("participants", "firstName lastName _id email status");
+
+    console.log("existing conv",existing_conv[0]);
+
+    if (existing_conv.length === 0) {
+      let new_chat = await OneToOneMessage.create({
+        participants: [to, from],
+      });
+
+      new_chat = await OneToOneMessage.findById(new_chat._id).populate(
+        "participants",
+        "firstName lastName _id email status"
+      );
+
+      console.log("new chat",new_chat);
+      socket.emit("start_chat", new_chat);
+    } else {
+      console.log("new",existing_conv[0]);
+      socket.emit("start_chat", existing_conv[0]);
+    }
+  });
+
+  socket.on("get_messages", async (data, callback) => {
+    const messages = await OneToOneMessage.findById(data.conv_id).select("messages");
+    callback(messages);
+  });
+
+  socket.on("text_message", async (data) => {
+    console.log("Received message ", data);
+
+    const { to, from, message, conv_id, type } = data;
+
+    const to_user = await User.findById(to);
+    const from_user = await User.findById(from);
+
+    const new_message = {
+      to,
+      from,
+      type,
+      text: message,
+      createAt: Date.now(),
+    };
+
+    const chat = await OneToOneMessage.findById(conv_id);
+    console.log(chat);
+
+    chat.messages.push(new_message);
+    await chat.save({});
+
+    io.to(to_user.socket_id).emit("new_message", {
+      conv_id,
+      message: new_message,
+    });
+
+    io.to(from_user.socket_id).emit("new_message", {
+      conv_id,
+      message: new_message,
+    });
   });
 
   socket.on("file_message", (data) => {
@@ -117,20 +183,21 @@ io.on("connection", async (socket) => {
 
     const fileExtension = path.extname(data.file.name);
 
-    const fileName = `${Date.now()}_${Math.floor(Math.random() * 10000)}${fileExtension}`;
+    const fileName = `${Date.now()}_${Math.floor(
+      Math.random() * 10000
+    )}${fileExtension}`;
 
     //upload file to aws s3
-  })
+  });
 
   socket.on("end", async (data) => {
-    if(data.user_id){
-      await User.findByIdAndUpdate(data.user_id, {status:"Offline"});
+    if (data.user_id) {
+      await User.findByIdAndUpdate(data.user_id, { status: "Offline" });
     }
-
 
     console.log("Closing connection");
     socket.disconnect(0);
-  })
+  });
 });
 
 process.on("unhandledRejection", (err) => {
