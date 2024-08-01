@@ -20,7 +20,7 @@ const server = http.createServer(app); //create a server with the app
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3001",
+    origin: "https://chatapp-0hbx.onrender.com",
     methods: ["GET", "POST"],
   },
 });
