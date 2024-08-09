@@ -120,7 +120,7 @@ table, td { color: #000000; } #u_body a { color: #0000ee; text-decoration: under
   <tr>
     <td style="padding-right: 0px;padding-left: 0px;" align="center">
       
-      <img align="center" border="0" src="https://assets.unlayer.com/projects/47137/1675000768671-logo.ico" alt="" title="" style="outline: none;text-decoration: none;-ms-interpolation-mode: bicubic;clear: both;display: inline-block !important;border: none;height: auto;float: none;width: 18%;max-width: 86.4px;" width="86.4"/>
+      <img align="center" border="0" src="https://assets.unlayer.com/projects/245468/1723228445828-panda.ico" alt="" title="" style="outline: none;text-decoration: none;-ms-interpolation-mode: bicubic;clear: both;display: inline-block !important;border: none;height: auto;float: none;width: 18%;max-width: 86.4px;" width="86.4"/>
       
     </td>
   </tr>
@@ -222,7 +222,7 @@ table, td { color: #000000; } #u_body a { color: #0000ee; text-decoration: under
       <td style="overflow-wrap:break-word;word-break:break-word;padding:10px;font-family:arial,helvetica,sans-serif;" align="left">
         
   <div style="font-size: 14px; color: #878787; line-height: 140%; text-align: center; word-wrap: break-word;">
-    <p style="line-height: 140%;">For assistance and queries write to us at <a rel="noopener" href="mailto:akashkmathew11@gmail.com" target="_blank">akashkmathew11@gmail.com</a></p>
+    <p style="line-height: 140%;">For assistance and queries write to us at <a rel="noopener" href="mailto:talky.notification@gmail.com" target="_blank">talky.notification@gmail.com</a></p>
   </div>
 
       </td>
