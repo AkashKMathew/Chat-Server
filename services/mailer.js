@@ -1,20 +1,16 @@
-const nodemailer = require("nodemailer");
-require("dotenv").config();
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth:{
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+require('dotenv').config();
 
 exports.sendEmail = async (args) =>{
-  if (process.env.NODE_ENV != "development") {
-    await transporter.sendMail(args);
-    console.log("Email sent successfully");
-  }
+  const response = await fetch(process.env.EMAIL_SERVICE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
+    }),
+  });
+
+  const data = await response.json();
+  console.log(data); // { success: true, message: 'Email sent successfully.', id: '...' }
 };
